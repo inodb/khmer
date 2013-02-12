@@ -24,10 +24,13 @@ def batchwise(t, size):
 
 # Returns true if the pair of records are properly pairs
 def validpair(r0, r1):
-    return r0.name[-1] == "1" and \
+    # Check for paired reads casava style <1.8 and >=1.8
+    return (r0.name[-1] == "1" and \
            r1.name[-1] == "2" and \
-           r0.name[0:-1] == r1.name[0:-1]
-
+           r0.name[0:-1] == r1.name[0:-1]) or \
+           (r0.name == r1.name and \
+           r0.annotations.startswith('1:') and \
+           r1.annotations.startswith('2:'))
 def main():
     parser = build_construct_args()
     parser.add_argument('-C', '--cutoff', type=int, dest='cutoff',
@@ -116,13 +119,19 @@ def main():
                 if med < DESIRED_COVERAGE:
                     ht.consume(seq)
                     passed_filter = True
-            
+
             # Emit records if any passed
             if passed_length and passed_filter:
                 for record in batch:
                     if hasattr(record,'accuracy'):
-                        outfp.write('@%s\n%s\n+\n%s\n' % (record.name, 
-                                                          record.sequence, 
+                        # Add annotations, for Casava 1.8 that contains pair
+                        # info
+                        if len(record.annotations) == 0:
+                            acc = record.name
+                        else:
+                            acc = record.name + ' ' + record.annotations
+                        outfp.write('@%s\n%s\n+\n%s\n' % (acc,
+                                                          record.sequence,
                                                           record.accuracy))
                     else:
                         outfp.write('>%s\n%s\n' % (record.name, record.sequence))
